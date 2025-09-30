@@ -1,0 +1,48 @@
+# Build artifacts
+build/
+dist/
+bin/
+*.exe
+*.out
+
+# Dependencies
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+progress.md
+progress.archive.md
+.claude/cache/
+
+# Golang specific
+go.sum
+
+# CLI specific
+ollamacli
+
+# Test artifacts
+coverage.txt
+coverage.html
+*.test
+
+# Config files (may contain sensitive data)
+config.yaml
+.ollamacli/
