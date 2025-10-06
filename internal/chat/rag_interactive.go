@@ -189,7 +189,7 @@ func (ic *RAGInteractiveChat) Start(ctx context.Context) error {
 		if len(ic.messages) == 0 {
 			ic.messages = append(ic.messages, client.ChatMessage{
 				Role:    "system",
-				Content: "You are a helpful assistant. Use the provided context to answer questions accurately. If the context doesn't contain relevant information, say so.",
+				Content: "You are a helpful assistant. Use the provided context to answer questions accurately. Always respond in the same language as the user's question. If the context doesn't contain relevant information, say so.",
 			})
 		}
 
