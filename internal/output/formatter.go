@@ -31,6 +31,7 @@ type Formatter interface {
 	FormatEmbeddings(resp *client.EmbedResponse) error
 	FormatCreateProgress(resp *client.CreateResponse) error
 	FormatError(err error) error
+	FormatGeneric(data interface{}) error
 }
 
 type formatter struct {
@@ -295,6 +296,11 @@ func (f *formatter) writeJSON(data interface{}) error {
 	encoder := json.NewEncoder(f.opts.Writer)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(data)
+}
+
+// FormatGeneric formats any generic data structure
+func (f *formatter) FormatGeneric(data interface{}) error {
+	return f.writeJSON(data)
 }
 
 func (f *formatter) formatSize(bytes int64) string {

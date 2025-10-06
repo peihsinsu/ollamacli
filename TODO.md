@@ -1,6 +1,7 @@
 # TODO
 
 # Complete
+[*] 加上指令 ollamacli config status，顯示目前config位置與資訊 - 2025-10-06
 [*] 簡化REPL的啟動，當使用ollamacli chat時，直接進入REPL模式，並預載llama3.1:8b模型 - 2025-09-30
 [*] REPL增加/save --previous --output $path功能，可以將上一個回應的內容單獨儲存出來 - 2025-09-30
 [*] 在REPL模式中實作 /model use $mode_name 功能 - 2025-09-30

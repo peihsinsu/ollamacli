@@ -15,12 +15,15 @@ DESTDIR ?=
 INSTALL ?= /usr/bin/install
 LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.CommitHash=$(COMMIT_HASH)"
 
-# Go variables
-GOOS := $(shell go env GOOS)
-GOARCH := $(shell go env GOARCH)
-GOBIN := $(shell go env GOBIN)
+# Go variables - Force using Go 1.24.7
+export GOTOOLCHAIN := go1.24.7
+export GOROOT := $(HOME)/.gvm/gos/go1.24.7
+GO := $(GOROOT)/bin/go
+GOOS := $(shell $(GO) env GOOS)
+GOARCH := $(shell $(GO) env GOARCH)
+GOBIN := $(shell $(GO) env GOBIN)
 ifeq ($(GOBIN),)
-GOBIN := $(shell go env GOPATH)/bin
+GOBIN := $(shell $(GO) env GOPATH)/bin
 endif
 
 # Tools
@@ -43,13 +46,13 @@ all: clean deps build
 build: deps ## Build the application (production)
 	@echo "$(BLUE)Building $(PROJECT_NAME) for $(GOOS)/$(GOARCH)...$(RESET)"
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 go build $(LDFLAGS) -a -installsuffix cgo -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/$(PROJECT_NAME)
+	CGO_ENABLED=0 $(GO) build $(LDFLAGS) -a -installsuffix cgo -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/$(PROJECT_NAME)
 	@echo "$(GREEN)Build completed: $(BUILD_DIR)/$(BINARY_NAME)$(RESET)"
 
 build-dev: ## Quick build for development
 	@echo "$(BLUE)Building $(PROJECT_NAME) (development mode)...$(RESET)"
 	@mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/$(PROJECT_NAME)
+	$(GO) build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/$(PROJECT_NAME)
 	@echo "$(GREEN)Development build completed: $(BUILD_DIR)/$(BINARY_NAME)$(RESET)"
 
 run: build ## Build and run the application
@@ -58,53 +61,53 @@ run: build ## Build and run the application
 
 run-direct: ## Run without building (go run)
 	@echo "$(BLUE)Running $(PROJECT_NAME) directly...$(RESET)"
-	go run ./cmd/$(PROJECT_NAME) $(ARGS)
+	$(GO) run ./cmd/$(PROJECT_NAME) $(ARGS)
 
 # Dependencies
 deps: ## Install dependencies
 	@echo "$(BLUE)Installing dependencies...$(RESET)"
-	go mod download
-	go mod verify
+	$(GO) mod download
+	$(GO) mod verify
 	@echo "$(GREEN)Dependencies installed$(RESET)"
 
 tidy: ## Tidy Go modules
 	@echo "$(BLUE)Tidying modules...$(RESET)"
-	go mod tidy
+	$(GO) mod tidy
 	@echo "$(GREEN)Modules tidied$(RESET)"
 
 # Testing
 test: ## Run tests
 	@echo "$(BLUE)Running tests...$(RESET)"
-	go test -v -race ./...
+	$(GO) test -v -race ./...
 	@echo "$(GREEN)Tests completed$(RESET)"
 
 test-coverage: ## Run tests with coverage report
 	@echo "$(BLUE)Running tests with coverage...$(RESET)"
 	@mkdir -p $(BUILD_DIR)
-	go test -v -race -coverprofile=$(BUILD_DIR)/coverage.out ./...
-	go tool cover -html=$(BUILD_DIR)/coverage.out -o $(BUILD_DIR)/coverage.html
+	$(GO) test -v -race -coverprofile=$(BUILD_DIR)/coverage.out ./...
+	$(GO) tool cover -html=$(BUILD_DIR)/coverage.out -o $(BUILD_DIR)/coverage.html
 	@echo "$(GREEN)Coverage report generated: $(BUILD_DIR)/coverage.html$(RESET)"
 
 benchmark: ## Run benchmark tests
 	@echo "$(BLUE)Running benchmarks...$(RESET)"
-	go test -bench=. -benchmem ./...
+	$(GO) test -bench=. -benchmem ./...
 	@echo "$(GREEN)Benchmarks completed$(RESET)"
 
 # Code quality
 fmt: ## Format code
 	@echo "$(BLUE)Formatting code...$(RESET)"
-	go fmt ./...
+	$(GO) fmt ./...
 	goimports -w .
 	@echo "$(GREEN)Code formatted$(RESET)"
 
 vet: ## Run go vet
 	@echo "$(BLUE)Running go vet...$(RESET)"
-	go vet ./...
+	$(GO) vet ./...
 	@echo "$(GREEN)go vet completed$(RESET)"
 
 lint: ## Run golangci-lint (requires installation)
 	@echo "$(BLUE)Running golangci-lint...$(RESET)"
-	@which golangci-lint > /dev/null || (echo "$(RED)golangci-lint not found. Installing...$(RESET)" && go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
+	@which golangci-lint > /dev/null || (echo "$(RED)golangci-lint not found. Installing...$(RESET)" && $(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
 	golangci-lint run
 	@echo "$(GREEN)Linting completed$(RESET)"
 
@@ -112,7 +115,7 @@ lint: ## Run golangci-lint (requires installation)
 clean: ## Clean build artifacts
 	@echo "$(BLUE)Cleaning build artifacts...$(RESET)"
 	rm -rf $(BUILD_DIR) $(DIST_DIR)
-	go clean -cache -testcache -modcache
+	$(GO) clean -cache -testcache -modcache
 	@echo "$(GREEN)Cleanup completed$(RESET)"
 
 # Installation
@@ -141,27 +144,27 @@ build-all: clean deps ## Cross-compile for multiple platforms
 
 	# Linux AMD64
 	@echo "$(YELLOW)Building for linux/amd64...$(RESET)"
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -a -installsuffix cgo -o $(DIST_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/$(PROJECT_NAME)
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GO) build $(LDFLAGS) -a -installsuffix cgo -o $(DIST_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/$(PROJECT_NAME)
 
 	# Linux ARM64
 	@echo "$(YELLOW)Building for linux/arm64...$(RESET)"
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -a -installsuffix cgo -o $(DIST_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/$(PROJECT_NAME)
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(GO) build $(LDFLAGS) -a -installsuffix cgo -o $(DIST_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/$(PROJECT_NAME)
 
 	# macOS AMD64
 	@echo "$(YELLOW)Building for darwin/amd64...$(RESET)"
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -a -installsuffix cgo -o $(DIST_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/$(PROJECT_NAME)
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 $(GO) build $(LDFLAGS) -a -installsuffix cgo -o $(DIST_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/$(PROJECT_NAME)
 
 	# macOS ARM64
 	@echo "$(YELLOW)Building for darwin/arm64...$(RESET)"
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -a -installsuffix cgo -o $(DIST_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/$(PROJECT_NAME)
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 $(GO) build $(LDFLAGS) -a -installsuffix cgo -o $(DIST_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/$(PROJECT_NAME)
 
 	# Windows AMD64
 	@echo "$(YELLOW)Building for windows/amd64...$(RESET)"
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -a -installsuffix cgo -o $(DIST_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/$(PROJECT_NAME)
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 $(GO) build $(LDFLAGS) -a -installsuffix cgo -o $(DIST_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/$(PROJECT_NAME)
 
 	# Windows ARM64
 	@echo "$(YELLOW)Building for windows/arm64...$(RESET)"
-	GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -a -installsuffix cgo -o $(DIST_DIR)/$(BINARY_NAME)-windows-arm64.exe ./cmd/$(PROJECT_NAME)
+	GOOS=windows GOARCH=arm64 CGO_ENABLED=0 $(GO) build $(LDFLAGS) -a -installsuffix cgo -o $(DIST_DIR)/$(BINARY_NAME)-windows-arm64.exe ./cmd/$(PROJECT_NAME)
 
 	@echo "$(GREEN)Cross-compilation completed. Binaries in $(DIST_DIR)/$(RESET)"
 

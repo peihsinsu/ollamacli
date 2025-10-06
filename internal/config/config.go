@@ -23,8 +23,19 @@ type Config struct {
 	Verbose  bool   `yaml:"verbose"`
 	Quiet    bool   `yaml:"quiet"`
 
+	// RAG configuration
+	RAG RAGConfig `yaml:"rag"`
+
 	// Runtime config
 	ConfigPath string `yaml:"-"`
+}
+
+type RAGConfig struct {
+	KnowledgeBase string   `yaml:"knowledge_base"`
+	EmbedModel    string   `yaml:"embed_model"`
+	ChunkSize     int      `yaml:"chunk_size"`
+	ChunkOverlap  int      `yaml:"chunk_overlap"`
+	AllowedFiles  []string `yaml:"allowed_files"`
 }
 
 func Load() (*Config, error) {
@@ -34,6 +45,11 @@ func Load() (*Config, error) {
 		LogLevel: DefaultLogLevel,
 		Verbose:  false,
 		Quiet:    false,
+		RAG: RAGConfig{
+			EmbedModel:   "mxbai-embed-large",
+			ChunkSize:    500,
+			ChunkOverlap: 50,
+		},
 	}
 
 	// Load from config file
@@ -111,16 +127,79 @@ func (c *Config) Save() error {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	data, err := yaml.Marshal(c)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
+	// Generate config with inline comments
+	configContent := c.generateConfigWithComments()
 
-	if err := os.WriteFile(configPath, data, 0600); err != nil {
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
 	return nil
+}
+
+func (c *Config) generateConfigWithComments() string {
+	allowedFilesYAML := "[]"
+	if len(c.RAG.AllowedFiles) > 0 {
+		allowedFilesYAML = "\n"
+		for _, file := range c.RAG.AllowedFiles {
+			allowedFilesYAML += fmt.Sprintf("    - %s\n", file)
+		}
+		allowedFilesYAML += "  "
+	}
+
+	return fmt.Sprintf(`# Ollama Server Configuration
+# The hostname or IP address of the Ollama server
+host: %s
+
+# The port number of the Ollama server (default: 11434)
+port: %d
+
+# Authentication token for the Ollama server (leave empty if not required)
+token: "%s"
+
+# Logging level: debug, info, warn, error (default: info)
+log_level: %s
+
+# Enable verbose output for debugging purposes
+verbose: %t
+
+# Enable quiet mode to suppress non-essential output
+quiet: %t
+
+# RAG (Retrieval Augmented Generation) Configuration
+rag:
+  # Path to the SQLite vector database for knowledge base storage
+  # Leave empty to use default: ~/.ollamacli/knowledge.db
+  knowledge_base: "%s"
+
+  # Embedding model to use for vectorizing documents
+  # Recommended models: mxbai-embed-large, nomic-embed-text
+  embed_model: %s
+
+  # Maximum size of each text chunk in characters (default: 500)
+  # Larger chunks preserve more context but may reduce precision
+  chunk_size: %d
+
+  # Number of overlapping characters between chunks (default: 50)
+  # Overlap helps maintain context across chunk boundaries
+  chunk_overlap: %d
+
+  # List of file patterns to restrict RAG queries (optional)
+  # Example: ["*.go", "docs/*.md"]
+  allowed_files: %s
+`,
+		c.Host,
+		c.Port,
+		c.Token,
+		c.LogLevel,
+		c.Verbose,
+		c.Quiet,
+		c.RAG.KnowledgeBase,
+		c.RAG.EmbedModel,
+		c.RAG.ChunkSize,
+		c.RAG.ChunkOverlap,
+		allowedFilesYAML,
+	)
 }
 
 func (c *Config) GetServerURL() string {
@@ -129,4 +208,17 @@ func (c *Config) GetServerURL() string {
 
 func (c *Config) HasToken() bool {
 	return c.Token != ""
+}
+
+func (c *Config) GetKnowledgeBasePath() string {
+	if c.RAG.KnowledgeBase != "" {
+		return c.RAG.KnowledgeBase
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ".ollamacli/knowledge.db"
+	}
+
+	return filepath.Join(homeDir, ".ollamacli", "knowledge.db")
 }

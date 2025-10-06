@@ -257,31 +257,111 @@ ollamacli run llama2 --prompt "Write a haiku about programming"
 cat document.txt | ollamacli run llama2 --prompt "Summarize this:"
 ```
 
-#### embed - 產生向量嵌入
+#### rag-import - 建立 RAG 知識庫
 
-使用嵌入模型產生文本的向量表示，用於語義搜索和 RAG（檢索增強生成）應用。
+將文件索引並存儲到本地向量資料庫，用於 RAG（檢索增強生成）。
+
+**基本用法：**
 
 ```bash
-# 從命令列參數產生嵌入
-ollamacli embed nomic-embed-text --input "Hello, world!"
+# 索引單個或多個文件
+ollamacli rag-import --files doc1.md --files doc2.txt
 
-# 從檔案產生嵌入
-ollamacli embed nomic-embed-text --file document.txt
+# 索引整個目錄
+ollamacli rag-import --dir ./docs --patterns "*.md" --patterns "*.txt"
 
-# 從標準輸入產生嵌入
-echo "Sample text" | ollamacli embed nomic-embed-text
+# 使用特定嵌入模型和配置
+ollamacli rag-import \
+  --dir ./docs \
+  --model mxbai-embed-large \
+  --chunk-size 500 \
+  --chunk-overlap 50
 
-# 批次處理多個文本
-ollamacli embed nomic-embed-text --input "First text" --input "Second text"
+# 指定知識庫路徑
+ollamacli rag-import --dir ./docs --db ~/my-knowledge.db
+```
 
-# JSON 格式輸出（用於保存向量）
-ollamacli embed nomic-embed-text --input "Text" --format json > embeddings.json
+**預覽模式（Dry Run）：**
+
+使用 `--dry-run` 可以預覽嵌入向量而不儲存到知識庫：
+
+```bash
+# 預覽文字嵌入
+ollamacli rag-import --dry-run --input "Hello, world!" --model mxbai-embed-large
+
+# 預覽檔案嵌入
+ollamacli rag-import --dry-run --files document.txt --model nomic-embed-text
+
+# 從標準輸入預覽
+echo "Sample text" | ollamacli rag-import --dry-run --model mxbai-embed-large
+
+# JSON 格式輸出
+ollamacli rag-import --dry-run --input "Text" --format json --model mxbai-embed-large
 ```
 
 **推薦的嵌入模型：**
 - `nomic-embed-text` - 高質量通用嵌入模型
 - `mxbai-embed-large` - 大型上下文長度模型
 - `all-minilm` - 輕量級快速模型
+
+#### rag-chat - 基於知識庫的問答
+
+使用 RAG 技術，基於索引的文件進行問答。支援互動式 REPL 模式。
+
+**互動模式（預設）：**
+
+```bash
+# 啟動互動式 RAG 對話（如果沒有 --prompt 參數，自動進入互動模式）
+ollamacli rag-chat
+
+# 使用特定模型
+ollamacli rag-chat llama3.2
+
+# 明確指定互動模式
+ollamacli rag-chat --interactive
+
+# 調整檢索參數
+ollamacli rag-chat --top-k 5 --embed-model mxbai-embed-large
+```
+
+**互動模式功能：**
+- 每次查詢自動檢索相關知識庫內容
+- 保持對話歷史和上下文
+- 支援指令：`/help` `/exit` `/clear` `/status`
+
+**非互動模式（單次問答）：**
+
+```bash
+# 基本問答
+ollamacli rag-chat --prompt "這些文件說明了什麼？"
+
+# 使用特定模型
+ollamacli rag-chat llama3.2 --prompt "如何配置這個系統？"
+
+# 調整檢索數量
+ollamacli rag-chat --prompt "主要功能有哪些？" --top-k 5
+
+# 從管道輸入
+echo "這個錯誤如何解決？" | ollamacli rag-chat
+
+# 使用特定知識庫
+ollamacli rag-chat --prompt "..." --db ~/my-knowledge.db
+```
+
+**完整 RAG 工作流程範例：**
+
+```bash
+# 1. 索引你的文檔
+ollamacli rag-import --dir ./my-docs --patterns "*.md"
+
+# 2. 啟動互動式問答（推薦）
+ollamacli rag-chat llama3.2
+
+# 或單次問答
+ollamacli rag-chat llama3.2 --prompt "請詳細解釋這個實現方式" --top-k 5
+```
+
+詳細的 RAG 使用指南請參閱 [docs/rag-guide.md](docs/rag-guide.md)。
 
 #### build - 建立自定義模型
 
@@ -463,6 +543,63 @@ insecure: false
 **配置檔位置：**
 - Linux/macOS: `~/.ollamacli/config.yaml`
 - Windows: `%USERPROFILE%\.ollamacli\config.yaml`
+
+#### 生成預設配置檔
+
+使用 `config generate-default` 指令生成預設配置檔：
+
+```bash
+# 生成預設配置檔
+ollamacli config generate-default
+
+# 如果檔案已存在，使用 --force 覆蓋
+ollamacli config generate-default --force
+```
+
+這會在 `~/.ollamacli/config.yaml` 創建一個包含所有預設值的配置檔，並附有詳細的英文說明註解，你可以根據需要編輯它。
+
+#### 查看當前配置
+
+使用 `config status` 指令查看當前配置：
+
+```bash
+# 顯示配置狀態
+ollamacli config status
+
+# 輸出範例：
+# === ollamacli Configuration Status ===
+#
+# Config File:     /Users/username/.ollamacli/config.yaml (檔案尚未存在)
+# 或
+# Config File:     /Users/username/.ollamacli/config.yaml
+#
+# Server Settings:
+#   Host:          localhost
+#   Port:          11434
+#   URL:           http://localhost:11434
+#
+# General Settings:
+#   Log Level:     info
+#   Verbose:       false
+#   Quiet:         false
+#
+# RAG Settings:
+#   Knowledge Base: /Users/username/.ollamacli/knowledge.db
+#   Embed Model:    mxbai-embed-large
+#   Chunk Size:     500
+#   Chunk Overlap:  50
+#
+# Authentication:
+#   Token:         ✗ Not configured
+```
+
+**JSON 格式輸出：**
+
+```bash
+ollamacli config status --format json
+```
+
+這對於腳本和自動化特別有用。
 
 ## 進階用法
 
